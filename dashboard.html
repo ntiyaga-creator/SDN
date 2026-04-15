@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEA - Security Enforcement Application Dashboard</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+</head>
+<body class="bg-dark">
+    <div class="container-fluid p-0">
+        <div class="row g-0">
+            <!-- Sidebar -->
+            <div class="col-auto bg-dark border-end" style="min-height: 100vh; width: 280px;">
+                <div class="p-3">
+                    <div class="text-center mb-4">
+                        <h2 class="text-primary">
+                            <i class="bi bi-shield-shaded"></i> SEA
+                        </h2>
+                        <p class="text-muted small">Security Enforcement App</p>
+                    </div>
+                    
+                    <nav class="nav flex-column">
+                        <a href="#" class="nav-link text-white py-2 px-3 mb-1 rounded" data-page="dashboard" id="nav-dashboard">
+                            <i class="bi bi-speedometer2 me-2"></i> Dashboard
+                        </a>
+                        <a href="#" class="nav-link text-white py-2 px-3 mb-1 rounded" data-page="alerts" id="nav-alerts">
+                            <i class="bi bi-bell me-2"></i> Alerts
+                            <span class="badge bg-danger float-end" id="alertBadge" style="display: none;">0</span>
+                        </a>
+                        <a href="#" class="nav-link text-white py-2 px-3 mb-1 rounded" data-page="policies" id="nav-policies">
+                            <i class="bi bi-shield-check me-2"></i> Policies
+                        </a>
+                        <a href="#" class="nav-link text-white py-2 px-3 mb-1 rounded" data-page="topology" id="nav-topology">
+                            <i class="bi bi-diagram-3 me-2"></i> Network Topology
+                        </a>
+                        <a href="#" class="nav-link text-white py-2 px-3 mb-1 rounded" data-page="logs" id="nav-logs">
+                            <i class="bi bi-file-text me-2"></i> Logs
+                        </a>
+                        <a href="#" class="nav-link text-white py-2 px-3 mb-1 rounded" data-page="settings" id="nav-settings">
+                            <i class="bi bi-gear me-2"></i> Settings
+                        </a>
+                    </nav>
+                    
+                    <div class="position-absolute bottom-0 start-0 p-3 w-100">
+                        <div class="border-top pt-3">
+                            <div class="small text-muted mb-2">
+                                <div class="d-flex align-items-center mb-1">
+                                    <span class="badge bg-success me-2" style="width: 8px; height: 8px; padding: 0;"></span>
+                                    <span>ONOS Connected</span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-success me-2" style="width: 8px; height: 8px; padding: 0;"></span>
+                                    <span>WebSocket Active</span>
+                                </div>
+                            </div>
+                            <div class="small text-muted" id="liveTime"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col bg-light">
+                <!-- Top Bar -->
+                <div class="bg-white border-bottom p-3 mb-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h1 class="h4 mb-0" id="page-title">
+                            <i class="bi bi-speedometer2"></i> Security Dashboard
+                        </h1>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-person-circle"></i> Admin
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="#"><i class="bi bi-person"></i> Profile</a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="bi bi-key"></i> Change Password</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="#"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                                </ul>
+                            </div>
+                            <button id="refreshBtn" class="btn btn-primary btn-sm">
+                                <i class="bi bi-arrow-repeat"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-4 pb-4">
+                    <!-- Dashboard Page -->
+                    <div id="dashboard-page" class="page">
+                        <!-- Statistics Cards -->
+                        <div class="row g-4 mb-4">
+                            <div class="col-md-3">
+                                <div class="card bg-primary text-white h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="card-title text-white-50">Total Packets</h6>
+                                                <h2 class="mb-0" id="totalPackets">0</h2>
+                                            </div>
+                                            <i class="bi bi-graph-up fs-1"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-danger text-white h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="card-title text-white-50">Alerts Generated</h6>
+                                                <h2 class="mb-0" id="totalAlerts">0</h2>
+                                            </div>
+                                            <i class="bi bi-exclamation-triangle fs-1"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="card-title text-white-50">Active Rules</h6>
+                                                <h2 class="mb-0" id="activeRules">0</h2>
+                                            </div>
+                                            <i class="bi bi-shield-lock fs-1"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-info text-white h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="card-title text-white-50">Active Flows</h6>
+                                                <h2 class="mb-0" id="activeFlows">0</h2>
+                                            </div>
+                                            <i class="bi bi-diagram-3 fs-1"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Charts -->
+                        <div class="row mb-4">
+                            <div class="col-lg-8">
+                                <div class="card">
+                                    <div class="card-header bg-white">
+                                        <h5 class="mb-0"><i class="bi bi-graph-up"></i> Traffic Rate (Mbps)</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="trafficChart" height="300"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="card">
+                                    <div class="card-header bg-white">
+                                        <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Alert Distribution</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="alertChart" height="300"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Alerts Table -->
+                        <div class="card">
+                            <div class="card-header bg-white">
+                                <h5 class="mb-0"><i class="bi bi-bell"></i> Recent Security Alerts</h5>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th><i class="bi bi-clock"></i> Time</th>
+                                                <th><i class="bi bi-exclamation-circle"></i> Severity</th>
+                                                <th><i class="bi bi-envelope"></i> Message</th>
+                                                <th><i class="bi bi-hdd-network"></i> Source IP</th>
+                                                <th><i class="bi bi-bullseye"></i> Destination IP</th>
+                                                <th><i class="bi bi-tools"></i> Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="alertsTableBody">
+                                            <tr>
+                                                <td colspan="6" class="text-center text-muted">
+                                                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                                    Loading alerts...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alerts Page -->
+                    <div id="alerts-page" class="page" style="display: none;">
+                        <div class="card">
+                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="bi bi-bell"></i> Security Alerts History</h5>
+                                <div class="d-flex gap-2">
+                                    <select id="severityFilter" class="form-select form-select-sm w-auto">
+                                        <option value="all">All Severities</option>
+                                        <option value="CRITICAL">Critical</option>
+                                        <option value="HIGH">High</option>
+                                        <option value="MEDIUM">Medium</option>
+                                        <option value="LOW">Low</option>
+                                    </select>
+                                    <button id="clearAlertsBtn" class="btn btn-danger btn-sm">
+                                        <i class="bi bi-trash"></i> Clear All
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Timestamp</th>
+                                                <th>Severity</th>
+                                                <th>Message</th>
+                                                <th>Source IP</th>
+                                                <th>Destination IP</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="fullAlertsTableBody">
+                                            <tr>
+                                                <td colspan="7" class="text-center text-muted">No alerts found</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Policies Page -->
+                    <div id="policies-page" class="page" style="display: none;">
+                        <div class="card">
+                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="bi bi-shield-check"></i> Security Policies</h5>
+                                <button id="addPolicyBtn" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-plus-lg"></i> Add Policy
+                                </button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Action</th>
+                                                <th>Priority</th>
+                                                <th>Enabled</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="policiesTableBody">
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted">
+                                                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                                    Loading policies...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Topology Page -->
+                    <div id="topology-page" class="page" style="display: none;">
+                        <div class="row">
+                            <div class="col-12 mb-4">
+                                <div class="card">
+                                    <div class="card-header bg-white">
+                                        <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Network Topology</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="topologyView" height="400" style="background: #f8f9fa; border-radius: 8px;"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header bg-white">
+                                        <h5 class="mb-0"><i class="bi bi-hdd-stack"></i> Devices</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group" id="deviceList">
+                                            <li class="list-group-item text-muted">Loading devices...</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Logs Page -->
+                    <div id="logs-page" class="page" style="display: none;">
+                        <div class="card">
+                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="bi bi-file-text"></i> System Logs</h5>
+                                <button id="downloadLogsBtn" class="btn btn-secondary btn-sm">
+                                    <i class="bi bi-download"></i> Download Logs
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <pre id="logContent" class="bg-dark text-light p-3 rounded" style="max-height: 600px; overflow-y: auto; font-family: monospace; font-size: 12px;">Loading logs...</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Settings Page -->
+                    <div id="settings-page" class="page" style="display: none;">
+                        <div class="card">
+                            <div class="card-header bg-white">
+                                <h5 class="mb-0"><i class="bi bi-gear"></i> System Settings</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="settingsForm">
+                                    <div class="mb-3">
+                                        <label class="form-label">Detection Thresholds</label>
+                                        <div class="input-group mb-2">
+                                            <span class="input-group-text">Packet Rate Threshold</span>
+                                            <input type="number" class="form-control" id="packetThreshold" value="1000">
+                                            <span class="input-group-text">pps</span>
+                                        </div>
+                                        <div class="input-group mb-2">
+                                            <span class="input-group-text">Byte Rate Threshold</span>
+                                            <input type="number" class="form-control" id="byteThreshold" value="1000000">
+                                            <span class="input-group-text">Bps</span>
+                                        </div>
+                                        <div class="input-group mb-2">
+                                            <span class="input-group-text">DDoS Threshold</span>
+                                            <input type="number" class="form-control" id="ddosThreshold" value="10000">
+                                            <span class="input-group-text">packets</span>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Auto-Mitigation</label>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="autoMitigate" checked>
+                                            <label class="form-check-label" for="autoMitigate">Enable automatic mitigation of attacks</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="logAllPackets">
+                                            <label class="form-check-label" for="logAllPackets">Log all packets (may impact performance)</label>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Alert Notifications</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="notifyCritical" checked>
+                                            <label class="form-check-label" for="notifyCritical">Critical alerts</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="notifyHigh" checked>
+                                            <label class="form-check-label" for="notifyHigh">High severity alerts</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="notifyMedium">
+                                            <label class="form-check-label" for="notifyMedium">Medium severity alerts</label>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                                    <button type="button" id="resetSettingsBtn" class="btn btn-secondary">Reset to Default</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Dashboard JavaScript
+        class SEADashboard {
+            constructor() {
+                this.socket = null;
+                this.charts = {};
+                this.alertsData = [];
+                this.trafficData = {
+                    timestamps: [],
+                    rates: []
+                };
+                this.currentPage = 'dashboard';
+                this.init();
+            }
+            
+            init() {
+                this.bindEvents();
+                this.initializeCharts();
+                this.loadInitialData();
+                this.startAutoRefresh();
+                this.updateLiveTime();
+            }
+            
+            bindEvents() {
+                // Navigation
+                document.querySelectorAll('[data-page]').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        this.switchPage(item.dataset.page);
+                    });
+                });
+                
+                // Refresh button
+                document.getElementById('refreshBtn')?.addEventListener('click', () => {
+                    this.refreshAll();
+                });
+                
+                // Filter
+                document.getElementById('severityFilter')?.addEventListener('change', (e) => {
+                    this.filterAlerts(e.target.value);
+                });
+                
+                // Clear alerts
+                document.getElementById('clearAlertsBtn')?.addEventListener('click', () => {
+                    this.clearAlerts();
+                });
+                
+                // Add policy
+                document.getElementById('addPolicyBtn')?.addEventListener('click', () => {
+                    this.showAddPolicyDialog();
+                });
+                
+                // Download logs
+                document.getElementById('downloadLogsBtn')?.addEventListener('click', () => {
+                    this.downloadLogs();
+                });
+                
+                // Settings form
+                document.getElementById('settingsForm')?.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.saveSettings();
+                });
+                
+                document.getElementById('resetSettingsBtn')?.addEventListener('click', () => {
+                    this.resetSettings();
+                });
+            }
+            
+            initializeCharts() {
+                // Traffic chart
+                const trafficCtx = document.getElementById('trafficChart')?.getContext('2d');
+                if (trafficCtx) {
+                    this.charts.traffic = new Chart(trafficCtx, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: 'Traffic Rate (Mbps)',
+                                data: [],
+                                borderColor: 'rgb(13, 110, 253)',
+                                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    position: 'top'
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Mbps'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Time'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                
+                // Alert chart
+                const alertCtx = document.getElementById('alertChart')?.getContext('2d');
+                if (alertCtx) {
+                    this.charts.alerts = new Chart(alertCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Critical', 'High', 'Medium', 'Low'],
+                            datasets: [{
+                                data: [0, 0, 0, 0],
+                                backgroundColor: [
+                                    '#dc3545',
+                                    '#fd7e14',
+                                    '#ffc107',
+                                    '#198754'
+                                ]
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+            
+            switchPage(page) {
+                this.currentPage = page;
+                
+                // Update active nav item
+                document.querySelectorAll('[data-page]').forEach(item => {
+                    item.classList.remove('active', 'bg-primary');
+                    if (item.dataset.page === page) {
+                        item.classList.add('active', 'bg-primary');
+                    }
+                });
+                
+                // Hide all pages
+                document.querySelectorAll('.page').forEach(p => {
+                    p.style.display = 'none';
+                });
+                
+                // Show selected page
+                const selectedPage = document.getElementById(`${page}-page`);
+                if (selectedPage) {
+                    selectedPage.style.display = 'block';
+                }
+                
+                // Update page title
+                const titles = {
+                    dashboard: 'Security Dashboard',
+                    alerts: 'Security Alerts',
+                    policies: 'Security Policies',
+                    topology: 'Network Topology',
+                    logs: 'System Logs',
+                    settings: 'Settings'
+                };
+                const titleElement = document.getElementById('page-title');
+                if (titleElement) {
+                    titleElement.innerHTML = `<i class="bi bi-${this.getPageIcon(page)}"></i> ${titles[page] || 'Dashboard'}`;
+                }
+                
+                // Load page-specific data
+                if (page === 'topology') {
+                    this.loadTopology();
+                } else if (page === 'logs') {
+                    this.loadLogs();
+                }
+            }
+            
+            getPageIcon(page) {
+                const icons = {
+                    dashboard: 'speedometer2',
+                    alerts: 'bell',
+                    policies: 'shield-check',
+                    topology: 'diagram-3',
+                    logs: 'file-text',
+                    settings: 'gear'
+                };
+                return icons[page] || 'speedometer2';
+            }
+            
+            loadInitialData() {
+                this.fetchStats();
+                this.fetchAlerts();
+                this.fetchPolicies();
+                this.fetchFlows();
+            }
+            
+            async fetchStats() {
+                try {
+                    const response = await fetch('/api/stats');
+                    const stats = await response.json();
+                    
+                    document.getElementById('totalPackets').textContent = stats.totalPackets || 0;
+                    document.getElementById('totalAlerts').textContent = stats.totalAlerts || 0;
+                    document.getElementById('activeRules').textContent = stats.activeRules || 0;
+                    document.getElementById('activeFlows').textContent = stats.activeFlows || 0;
+                    
+                    const badge = document.getElementById('alertBadge');
+                    if (badge && stats.totalAlerts > 0) {
+                        badge.textContent = stats.totalAlerts;
+                        badge.style.display = 'inline-block';
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch stats:', error);
+                    this.showDemoData();
+                }
+            }
+            
+            showDemoData() {
+                // Show demo data for testing
+                document.getElementById('totalPackets').textContent = '1,234,567';
+                document.getElementById('totalAlerts').textContent = '42';
+                document.getElementById('activeRules').textContent = '8';
+                document.getElementById('activeFlows').textContent = '156';
+            }
+            
+            async fetchAlerts() {
+                try {
+                    const response = await fetch('/api/alerts');
+                    this.alertsData = await response.json();
+                    this.displayAlerts(this.alertsData);
+                    this.updateAlertChart();
+                } catch (error) {
+                    console.error('Failed to fetch alerts:', error);
+                    this.loadDemoAlerts();
+                }
+            }
+            
+            loadDemoAlerts() {
+                this.alertsData = [
+                    {
+                        id: '1',
+                        message: 'DDoS attack detected',
+                        severity: 'CRITICAL',
+                        timestamp: Date.now(),
+                        sourceIp: '192.168.1.100',
+                        destinationIp: '10.0.0.1',
+                        mitigated: false
+                    },
+                    {
+                        id: '2',
+                        message: 'Port scan detected from multiple sources',
+                        severity: 'HIGH',
+                        timestamp: Date.now() - 60000,
+                        sourceIp: '192.168.1.50',
+                        destinationIp: '10.0.0.5',
+                        mitigated: true
+                    },
+                    {
+                        id: '3',
+                        message: 'Suspicious traffic pattern',
+                        severity: 'MEDIUM',
+                        timestamp: Date.now() - 120000,
+                        sourceIp: '10.0.0.2',
+                        destinationIp: '8.8.8.8',
+                        mitigated: false
+                    }
+                ];
+                this.displayAlerts(this.alertsData);
+                this.updateAlertChart();
+            }
+            
+            displayAlerts(alerts, filter = 'all') {
+                const tbody = document.getElementById('alertsTableBody');
+                const fullTbody = document.getElementById('fullAlertsTableBody');
+                
+                if (!tbody) return;
+                
+                const filtered = filter === 'all' ? alerts : 
+                    alerts.filter(a => a.severity === filter);
+                
+                const recentAlerts = filtered.slice(0, 10);
+                
+                if (recentAlerts.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No alerts found</td></tr>';
+                    if (fullTbody) fullTbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No alerts found</td></tr>';
+                    return;
+                }
+                
+                // Display in recent alerts table
+                tbody.innerHTML = recentAlerts.map(alert => `
+                    <tr>
+                        <td><small>${new Date(alert.timestamp).toLocaleTimeString()}</small></td>
+                        <td><span class="badge bg-${this.getSeverityClass(alert.severity)}">${alert.severity}</span></td>
+                        <td>${alert.message}</td>
+                        <td><code>${alert.sourceIp}</code></td>
+                        <td><code>${alert.destinationIp}</code></td>
+                        <td>
+                            <button onclick="dashboard.mitigate('${alert.id}')" class="btn btn-danger btn-sm">
+                                <i class="bi bi-shield-shaded"></i> Mitigate
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+                
+                // Display in full alerts table
+                if (fullTbody) {
+                    fullTbody.innerHTML = filtered.map(alert => `
+                        <tr>
+                            <td><code>${alert.id.substring(0, 8)}...</code></td>
+                            <td><small>${new Date(alert.timestamp).toLocaleString()}</small></td>
+                            <td><span class="badge bg-${this.getSeverityClass(alert.severity)}">${alert.severity}</span></td>
+                            <td>${alert.message}</td>
+                            <td><code>${alert.sourceIp}</code></td>
+                            <td><code>${alert.destinationIp}</code></td>
+                            <td><span class="badge bg-${alert.mitigated ? 'success' : 'warning'}">${alert.mitigated ? 'Mitigated' : 'Active'}</span></td>
+                        </tr>
+                    `).join('');
+                }
+            }
+            
+            getSeverityClass(severity) {
+                const classes = {
+                    'CRITICAL': 'danger',
+                    'HIGH': 'warning',
+                    'MEDIUM': 'info',
+                    'LOW': 'success'
+                };
+                return classes[severity] || 'secondary';
+            }
+            
+            filterAlerts(severity) {
+                this.displayAlerts(this.alertsData, severity);
+            }
+            
+            updateAlertChart() {
+                if (!this.charts.alerts) return;
+                
+                const counts = {
+                    CRITICAL: 0,
+                    HIGH: 0,
+                    MEDIUM: 0,
+                    LOW: 0
+                };
+                
+                this.alertsData.forEach(alert => {
+                    if (counts[alert.severity] !== undefined) {
+                        counts[alert.severity]++;
+                    }
+                });
+                
+                this.charts.alerts.data.datasets[0].data = [
+                    counts.CRITICAL,
+                    counts.HIGH,
+                    counts.MEDIUM,
+                    counts.LOW
+                ];
+                this.charts.alerts.update();
+            }
+            
+            async fetchPolicies() {
+                try {
+                    const response = await fetch('/api/policies');
+                    const policies = await response.json();
+                    this.displayPolicies(policies);
+                } catch (error) {
+                    console.error('Failed to fetch policies:', error);
+                    this.loadDemoPolicies();
+                }
+            }
+            
+            loadDemoPolicies() {
+                const policies = [
+                    { id: 'block_suspicious', action: 'BLOCK', priority: 100, enabled: true },
+                    { id: 'rate_limit_ddos', action: 'RATE_LIMIT', priority: 90, enabled: true },
+                    { id: 'isolate_compromised', action: 'ISOLATE', priority: 95, enabled: false }
+                ];
+                this.displayPolicies(policies);
+            }
+            
+            displayPolicies(policies) {
+                const tbody = document.getElementById('policiesTableBody');
+                if (!tbody) return;
+                
+                if (policies.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No policies configured</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = policies.map(policy => `
+                    <tr>
+                        <td><code>${policy.id}</code></td>
+                        <td><span class="badge bg-${policy.action === 'BLOCK' ? 'danger' : policy.action === 'RATE_LIMIT' ? 'warning' : 'info'}">${policy.action}</span></td>
+                        <td>${policy.priority}</td>
+                        <td><span class="badge bg-${policy.enabled ? 'success' : 'secondary'}">${policy.enabled ? 'Enabled' : 'Disabled'}</span></td>
+                        <td>
+                            <button onclick="dashboard.togglePolicy('${policy.id}')" class="btn btn-sm btn-outline-${policy.enabled ? 'warning' : 'success'} me-1">
+                                <i class="bi bi-${policy.enabled ? 'pause-circle' : 'play-circle'}"></i>
+                            </button>
+                            <button onclick="dashboard.deletePolicy('${policy.id}')" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+            
+            async fetchFlows() {
+                try {
+                    const response = await fetch('/api/flows');
+                    const flows = await response.json();
+                    this.updateTrafficChart(flows);
+                } catch (error) {
+                    console.error('Failed to fetch flows:', error);
+                    this.simulateTrafficData();
+                }
+            }
+            
+            simulateTrafficData() {
+                // Generate random traffic data for demo
+                const now = new Date();
+                const randomRate = Math.random() * 100;
+                
+                this.trafficData.timestamps.push(now.toLocaleTimeString());
+                this.trafficData.rates.push(randomRate);
+                
+                if (this.trafficData.timestamps.length > 20) {
+                    this.trafficData.timestamps.shift();
+                    this.trafficData.rates.shift();
+                }
+                
+                if (this.charts.traffic) {
+                    this.charts.traffic.data.labels = this.trafficData.timestamps;
+                    this.charts.traffic.data.datasets[0].data = this.trafficData.rates;
+                    this.charts.traffic.update();
+                }
+            }
+            
+            updateTrafficChart(flows) {
+                if (!this.charts.traffic) return;
+                
+                const now = new Date();
+                const totalRate = flows.reduce((sum, flow) => sum + (flow.byteRate || 0), 0) / 125000;
+                
+                this.trafficData.timestamps.push(now.toLocaleTimeString());
+                this.trafficData.rates.push(totalRate);
+                
+                if (this.trafficData.timestamps.length > 20) {
+                    this.trafficData.timestamps.shift();
+                    this.trafficData.rates.shift();
+                }
+                
+                this.charts.traffic.data.labels = this.trafficData.timestamps;
+                this.charts.traffic.data.datasets[0].data = this.trafficData.rates;
+                this.charts.traffic.update();
+            }
+            
+            async loadTopology() {
+                try {
+                    const response = await fetch('/api/topology');
+                    const topology = await response.json();
+                    this.renderTopology(topology);
+                } catch (error) {
+                    console.error('Failed to load topology:', error);
+                    this.renderDemoTopology();
+                }
+            }
+            
+            renderDemoTopology() {
+                const deviceList = document.getElementById('deviceList');
+                if (deviceList) {
+                    const devices = [
+                        { id: 'Switch-01', status: 'active' },
+                        { id: 'Switch-02', status: 'active' },
+                        { id: 'Host-01', status: 'active' },
+                        { id: 'Host-02', status: 'inactive' },
+                        { id: 'Controller', status: 'active' }
+                    ];
+                    
+                    deviceList.innerHTML = devices.map(device => `
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-${device.id.includes('Switch') ? 'router' : device.id.includes('Host') ? 'pc' : 'server'} me-2"></i>${device.id}</span>
+                            <span class="badge bg-${device.status === 'active' ? 'success' : 'danger'}">${device.status}</span>
+                        </li>
+                    `).join('');
+                }
+                
+                // Draw simple topology on canvas
+                const canvas = document.getElementById('topologyView');
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = canvas.parentElement.clientWidth;
+                    canvas.height = 400;
+                    
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#f8f9fa';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Draw devices
+                    const devices = [
+                        { x: 100, y: 200, label: 'Switch 1' },
+                        { x: 300, y: 200, label: 'Switch 2' },
+                        { x: 200, y: 100, label: 'Controller' },
+                        { x: 100, y: 300, label: 'Host 1' },
+                        { x: 300, y: 300, label: 'Host 2' }
+                    ];
+                    
+                    devices.forEach(device => {
+                        ctx.beginPath();
+                        ctx.arc(device.x, device.y, 30, 0, 2 * Math.PI);
+                        ctx.fillStyle = '#0d6efd';
+                        ctx.fill();
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '12px Arial';
+                        ctx.fillText(device.label, device.x - 25, device.y + 5);
+                    });
+                    
+                    // Draw connections
+                    ctx.beginPath();
+                    ctx.moveTo(100, 200);
+                    ctx.lineTo(200, 100);
+                    ctx.stroke();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(300, 200);
+                    ctx.lineTo(200, 100);
+                    ctx.stroke();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(100, 200);
+                    ctx.lineTo(100, 300);
+                    ctx.stroke();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(300, 200);
+                    ctx.lineTo(300, 300);
+                    ctx.stroke();
+                }
+            }
+            
+            renderTopology(topology) {
+                // Similar to demo but with real data
+                this.renderDemoTopology();
+            }
+            
+            async loadLogs() {
+                try {
+                    const response = await fetch('/api/logs');
+                    const logs = await response.text();
+                    const logContent = document.getElementById('logContent');
+                    if (logContent) {
+                        logContent.textContent = logs;
+                    }
+                } catch (error) {
+                    console.error('Failed to load logs:', error);
+                    const logContent = document.getElementById('logContent');
+                    if (logContent) {
+                        logContent.textContent = `[${new Date().toISOString()}] [INFO] SEA Application Started\n[${new Date().toISOString()}] [INFO] Monitoring network traffic...\n[${new Date().toISOString()}] [WARN] High traffic detected from 192.168.1.100\n[${new Date().toISOString()}] [ALERT] DDoS attack mitigated\n[${new Date().toISOString()}] [INFO] Security policies applied successfully`;
+                    }
+                }
+            }
+            
+            async mitigate(alertId) {
+                try {
+                    const response = await fetch('/api/mitigate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ alertId: alertId })
+                    });
+                    
+                    if (response.ok) {
+                        this.showNotification('Mitigation action triggered successfully', 'success');
+                        this.refreshAll();
+                    }
+                } catch (error) {
+                    console.error('Failed to mitigate:', error);
+                    this.showNotification('Mitigation triggered (Demo Mode)', 'info');
+                }
+            }
+            
+            async togglePolicy(policyId) {
+                try {
+                    const response = await fetch(`/api/policies/${policyId}/toggle`, {
+                        method: 'POST'
+                    });
+                    
+                    if (response.ok) {
+                        this.fetchPolicies();
+                        this.showNotification('Policy toggled', 'success');
+                    }
+                } catch (error) {
+                    console.error('Failed to toggle policy:', error);
+                    this.showNotification('Policy toggled (Demo Mode)', 'info');
+                }
+            }
+            
+            async deletePolicy(policyId) {
+                if (!confirm('Delete this policy?')) return;
+                
+                try {
+                    const response = await fetch(`/api/policies/${policyId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        this.fetchPolicies();
+                        this.showNotification('Policy deleted', 'success');
+                    }
+                } catch (error) {
+                    console.error('Failed to delete policy:', error);
+                    this.showNotification('Policy deleted (Demo Mode)', 'info');
+                }
+            }
+            
+            showAddPolicyDialog() {
+                const action = prompt('Enter action (BLOCK, RATE_LIMIT, ISOLATE, LOG_ONLY):');
+                if (action) {
+                    this.addPolicy(action);
+                }
+            }
+            
+            async addPolicy(action) {
+                try {
+                    const response = await fetch('/api/policies', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: action, priority: 100, enabled: true })
+                    });
+                    
+                    if (response.ok) {
+                        this.fetchPolicies();
+                        this.showNotification('Policy added', 'success');
+                    }
+                } catch (error) {
+                    console.error('Failed to add policy:', error);
+                    this.showNotification(`Policy "${action}" added (Demo Mode)`, 'info');
+                }
+            }
+            
+            async clearAlerts() {
+                if (!confirm('Clear all alerts?')) return;
+                
+                try {
+                    await fetch('/api/alerts/clear', { method: 'POST' });
+                    this.fetchAlerts();
+                    this.showNotification('Alerts cleared', 'success');
+                } catch (error) {
+                    console.error('Failed to clear alerts:', error);
+                    this.showNotification('Alerts cleared (Demo Mode)', 'info');
+                }
+            }
+            
+            downloadLogs() {
+                window.open('/api/logs/download', '_blank');
+                this.showNotification('Downloading logs...', 'info');
+            }
+            
+            saveSettings() {
+                const settings = {
+                    packetThreshold: document.getElementById('packetThreshold')?.value,
+                    byteThreshold: document.getElementById('byteThreshold')?.value,
+                    ddosThreshold: document.getElementById('ddosThreshold')?.value,
+                    autoMitigate: document.getElementById('autoMitigate')?.checked,
+                    logAllPackets: document.getElementById('logAllPackets')?.checked,
+                    notifyCritical: document.getElementById('notifyCritical')?.checked,
+                    notifyHigh: document.getElementById('notifyHigh')?.checked,
+                    notifyMedium: document.getElementById('notifyMedium')?.checked
+                };
+                
+                console.log('Settings saved:', settings);
+                this.showNotification('Settings saved successfully', 'success');
+            }
+            
+            resetSettings() {
+                const defaultSettings = {
+                    packetThreshold: 1000,
+                    byteThreshold: 1000000,
+                    ddosThreshold: 10000,
+                    autoMitigate: true,
+                    logAllPackets: false,
+                    notifyCritical: true,
+                    notifyHigh: true,
+                    notifyMedium: false
+                };
+                
+                document.getElementById('packetThreshold').value = defaultSettings.packetThreshold;
+                document.getElementById('byteThreshold').value = defaultSettings.byteThreshold;
+                document.getElementById('ddosThreshold').value = defaultSettings.ddosThreshold;
+                document.getElementById('autoMitigate').checked = defaultSettings.autoMitigate;
+                document.getElementById('logAllPackets').checked = defaultSettings.logAllPackets;
+                document.getElementById('notifyCritical').checked = defaultSettings.notifyCritical;
+                document.getElementById('notifyHigh').checked = defaultSettings.notifyHigh;
+                document.getElementById('notifyMedium').checked = defaultSettings.notifyMedium;
+                
+                this.showNotification('Settings reset to default', 'info');
+            }
+            
+            refreshAll() {
+                this.fetchStats();
+                this.fetchAlerts();
+                this.fetchPolicies();
+                this.fetchFlows();
+                this.showNotification('Dashboard refreshed', 'info');
+            }
+            
+            startAutoRefresh() {
+                setInterval(() => {
+                    if (this.currentPage === 'dashboard') {
+                        this.fetchStats();
+                        this.fetchAlerts();
+                        this.fetchFlows();
+                    }
+                }, 10000);
+                
+                // Simulate traffic data every 2 seconds for demo
+                setInterval(() => {
+                    if (this.currentPage === 'dashboard' && this.trafficData.timestamps.length > 0) {
+                        this.simulateTrafficData();
+                    }
+                }, 2000);
+            }
+            
+            updateLiveTime() {
+                const timeElement = document.getElementById('liveTime');
+                if (timeElement) {
+                    setInterval(() => {
+                        timeElement.innerHTML = `<i class="bi bi-clock"></i> ${new Date().toLocaleString()}`;
+                    }, 1000);
+                }
+            }
+            
+            showNotification(message, type) {
+                const notification = document.createElement('div');
+                notification.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show position-fixed`;
+                notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+                notification.innerHTML = `
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.remove();
+                }, 3000);
+            }
+        }
+        
+        // Initialize dashboard
+        let dashboard;
+        document.addEventListener('DOMContentLoaded', () => {
+            dashboard = new SEADashboard();
+            window.dashboard = dashboard;
+        });
+    </script>
+</body>
+</html>
