@@ -1,0 +1,9 @@
+flask==3.1.1
+flask-socketio==5.5.1
+flask-cors==5.0.1
+requests==2.32.3
+python-socketio==5.12.1
+
+# For Ryu SDN controller (Linux/other Python version):
+# pip install ryu==4.34
+# Then run: ryu-manager ryu_app.py

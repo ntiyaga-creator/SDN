@@ -15,6 +15,43 @@
     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
 </head>
 <body class="bg-dark">
+    <!-- Login Page -->
+    <div id="loginPage" class="d-flex align-items-center justify-content-center" style="min-height: 100vh; background: linear-gradient(135deg, #0d1b2a 0%, #1b2d3d 50%, #0d1b2a 100%);">
+        <div class="card shadow-lg border-0" style="width: 400px; background: rgba(255,255,255,0.05); backdrop-filter: blur(10px);">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <div class="display-6 text-primary mb-3"><i class="bi bi-shield-shaded"></i></div>
+                    <h3 class="text-white mb-1">SEA Dashboard</h3>
+                    <p class="text-muted small">Security Enforcement Application</p>
+                </div>
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark text-muted border-secondary"><i class="bi bi-person"></i></span>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" id="loginUsername" placeholder="Username" required autocomplete="username">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark text-muted border-secondary"><i class="bi bi-lock"></i></span>
+                            <input type="password" class="form-control bg-dark text-white border-secondary" id="loginPassword" placeholder="Password" required autocomplete="current-password">
+                        </div>
+                    </div>
+                    <div id="loginError" class="alert alert-danger py-2 small d-none"></div>
+                    <button type="submit" class="btn btn-primary w-100 py-2" id="loginBtn">
+                        <span id="loginBtnText">Sign In</span>
+                        <span id="loginBtnSpinner" class="spinner-border spinner-border-sm d-none"></span>
+                    </button>
+                </form>
+                <div class="text-center mt-3">
+                    <small class="text-muted">Default: admin / ntiyaga@1234</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard (hidden until login) -->
+    <div id="dashboardApp" class="d-none">
     <div class="container-fluid p-0">
         <div class="row g-0">
             <!-- Sidebar -->
@@ -78,13 +115,10 @@
                         <div class="d-flex align-items-center gap-3">
                             <div class="dropdown">
                                 <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                    <i class="bi bi-person-circle"></i> Admin
+                                    <i class="bi bi-person-circle"></i> <span id="adminName">Admin</span>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="#"><i class="bi bi-person"></i> Profile</a></li>
-                                    <li><a class="dropdown-item" href="#"><i class="bi bi-key"></i> Change Password</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="#"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="auth.doLogout()"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
                                 </ul>
                             </div>
                             <button id="refreshBtn" class="btn btn-primary btn-sm">
@@ -266,10 +300,10 @@
                                     <table class="table table-hover mb-0">
                                         <thead class="table-light">
                                             <tr>
-                                                <th>ID</th>
+                                                <th>Name</th>
                                                 <th>Action</th>
                                                 <th>Priority</th>
-                                                <th>Enabled</th>
+                                                <th>Status</th>
                                                 <th>Actions</th>
                                             </tr>
                                         </thead>
@@ -412,11 +446,49 @@
             }
             
             init() {
+                this.connectSocket();
                 this.bindEvents();
                 this.initializeCharts();
                 this.loadInitialData();
                 this.startAutoRefresh();
                 this.updateLiveTime();
+            }
+
+            connectSocket() {
+                this.socket = io(window.location.origin);
+                this.socket.on('connect', () => {
+                    console.log('WebSocket connected');
+                });
+                this.socket.on('stats_update', (stats) => {
+                    document.getElementById('totalPackets').textContent = stats.totalPackets?.toLocaleString() || '0';
+                    document.getElementById('totalAlerts').textContent = stats.totalAlerts || '0';
+                    document.getElementById('activeRules').textContent = stats.activeRules || '0';
+                    document.getElementById('activeFlows').textContent = stats.activeFlows || '0';
+                    const badge = document.getElementById('alertBadge');
+                    if (badge && stats.totalAlerts > 0) {
+                        badge.textContent = stats.totalAlerts;
+                        badge.style.display = 'inline-block';
+                    }
+                });
+                this.socket.on('traffic_update', (data) => {
+                    if (this.charts.traffic && data.timestamps) {
+                        this.charts.traffic.data.labels = data.timestamps;
+                        this.charts.traffic.data.datasets[0].data = data.rates;
+                        this.charts.traffic.update();
+                    }
+                });
+                this.socket.on('new_alert', (alert) => {
+                    this.alertsData.unshift(alert);
+                    this.displayAlerts(this.alertsData);
+                    this.updateAlertChart();
+                    this.showNotification(`Alert: ${alert.message}`, alert.severity === 'CRITICAL' ? 'error' : 'warning');
+                });
+                this.socket.on('alert_mitigated', (data) => {
+                    const alert = this.alertsData.find(a => a.id === data.id);
+                    if (alert) alert.mitigated = true;
+                    this.displayAlerts(this.alertsData);
+                    this.updateAlertChart();
+                });
             }
             
             bindEvents() {
@@ -793,22 +865,27 @@
                     return;
                 }
                 
-                tbody.innerHTML = policies.map(policy => `
+                tbody.innerHTML = policies.map(policy => {
+                    const actionClass = {'BLOCK': 'danger', 'DROP': 'danger', 'RATE_LIMIT': 'warning', 'ISOLATE': 'info', 'QUARANTINE': 'dark', 'REDIRECT': 'primary', 'LOG_ONLY': 'secondary', 'ALERT': 'warning'};
+                    return `
                     <tr>
-                        <td><code>${policy.id}</code></td>
-                        <td><span class="badge bg-${policy.action === 'BLOCK' ? 'danger' : policy.action === 'RATE_LIMIT' ? 'warning' : 'info'}">${policy.action}</span></td>
-                        <td>${policy.priority}</td>
-                        <td><span class="badge bg-${policy.enabled ? 'success' : 'secondary'}">${policy.enabled ? 'Enabled' : 'Disabled'}</span></td>
                         <td>
-                            <button onclick="dashboard.togglePolicy('${policy.id}')" class="btn btn-sm btn-outline-${policy.enabled ? 'warning' : 'success'} me-1">
+                            <strong>${policy.name || policy.id}</strong>
+                            <br><small class="text-muted">${policy.description || ''}</small>
+                        </td>
+                        <td><span class="badge bg-${actionClass[policy.action] || 'secondary'}">${policy.action}</span></td>
+                        <td><span class="badge bg-light text-dark">${policy.priority}</span></td>
+                        <td><span class="badge bg-${policy.enabled ? 'success' : 'secondary'}">${policy.enabled ? 'Active' : 'Inactive'}</span></td>
+                        <td>
+                            <button onclick="dashboard.togglePolicy('${policy.id}')" class="btn btn-sm btn-outline-${policy.enabled ? 'warning' : 'success'} me-1" title="${policy.enabled ? 'Disable' : 'Enable'}">
                                 <i class="bi bi-${policy.enabled ? 'pause-circle' : 'play-circle'}"></i>
                             </button>
-                            <button onclick="dashboard.deletePolicy('${policy.id}')" class="btn btn-sm btn-outline-danger">
+                            <button onclick="dashboard.deletePolicy('${policy.id}')" class="btn btn-sm btn-outline-danger" title="Delete">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </td>
-                    </tr>
-                `).join('');
+                    </tr>`;
+                }).join('');
             }
             
             async fetchFlows() {
@@ -1019,18 +1096,21 @@
             }
             
             showAddPolicyDialog() {
-                const action = prompt('Enter action (BLOCK, RATE_LIMIT, ISOLATE, LOG_ONLY):');
+                const name = prompt('Policy name:');
+                if (!name) return;
+                const desc = prompt('Description:') || '';
+                const action = prompt('Action (BLOCK, DROP, RATE_LIMIT, ISOLATE, QUARANTINE, REDIRECT, LOG_ONLY, ALERT):', 'BLOCK');
                 if (action) {
-                    this.addPolicy(action);
+                    this.addPolicy(action, name, desc);
                 }
             }
             
-            async addPolicy(action) {
+            async addPolicy(action, name, desc) {
                 try {
                     const response = await fetch('/api/policies', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: action, priority: 100, enabled: true })
+                        body: JSON.stringify({ action: action, name: name, description: desc, priority: 100, enabled: true })
                     });
                     
                     if (response.ok) {
@@ -1039,7 +1119,7 @@
                     }
                 } catch (error) {
                     console.error('Failed to add policy:', error);
-                    this.showNotification(`Policy "${action}" added (Demo Mode)`, 'info');
+                    this.showNotification(`Policy "${name}" added (Demo Mode)`, 'info');
                 }
             }
             
@@ -1117,13 +1197,6 @@
                         this.fetchFlows();
                     }
                 }, 10000);
-                
-                // Simulate traffic data every 2 seconds for demo
-                setInterval(() => {
-                    if (this.currentPage === 'dashboard' && this.trafficData.timestamps.length > 0) {
-                        this.simulateTrafficData();
-                    }
-                }, 2000);
             }
             
             updateLiveTime() {
@@ -1151,11 +1224,108 @@
             }
         }
         
-        // Initialize dashboard
+
+        // Login handling
+        class AuthManager {
+            constructor() {
+                this.loginForm = document.getElementById('loginForm');
+                this.loginPage = document.getElementById('loginPage');
+                this.dashboardApp = document.getElementById('dashboardApp');
+                this.loginError = document.getElementById('loginError');
+                this.loginBtn = document.getElementById('loginBtn');
+                this.loginBtnText = document.getElementById('loginBtnText');
+                this.loginBtnSpinner = document.getElementById('loginBtnSpinner');
+                this.usernameInput = document.getElementById('loginUsername');
+                this.passwordInput = document.getElementById('loginPassword');
+                this.bindEvents();
+                this.checkAuth();
+            }
+
+            bindEvents() {
+                this.loginForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.doLogin();
+                });
+                this.usernameInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') this.passwordInput.focus();
+                });
+            }
+
+            async checkAuth() {
+                try {
+                    const resp = await fetch('/api/check-auth');
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        this.showDashboard(data.username);
+                    } else {
+                        this.showLogin();
+                    }
+                } catch {
+                    this.showLogin();
+                }
+            }
+
+            async doLogin() {
+                const username = this.usernameInput.value.trim();
+                const password = this.passwordInput.value;
+                if (!username || !password) return;
+
+                this.loginError.classList.add('d-none');
+                this.loginBtn.disabled = true;
+                this.loginBtnText.textContent = 'Signing in...';
+                this.loginBtnSpinner.classList.remove('d-none');
+
+                try {
+                    const resp = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        this.showDashboard(data.username);
+                    } else {
+                        const err = await resp.json();
+                        this.showError(err.error || 'Invalid credentials');
+                    }
+                } catch {
+                    this.showError('Connection failed');
+                } finally {
+                    this.loginBtn.disabled = false;
+                    this.loginBtnText.textContent = 'Sign In';
+                    this.loginBtnSpinner.classList.add('d-none');
+                }
+            }
+
+            showDashboard(username) {
+                this.loginPage.classList.add('d-none');
+                this.dashboardApp.classList.remove('d-none');
+                document.getElementById('adminName').textContent = username;
+                dashboard = new SEADashboard();
+                window.dashboard = dashboard;
+            }
+
+            showLogin() {
+                this.loginPage.classList.remove('d-none');
+                this.dashboardApp.classList.add('d-none');
+            }
+
+            async doLogout() {
+                await fetch('/api/logout', { method: 'POST' });
+                this.showLogin();
+            }
+
+            showError(msg) {
+                this.loginError.textContent = msg;
+                this.loginError.classList.remove('d-none');
+            }
+        }
+
         let dashboard;
+        let auth;
         document.addEventListener('DOMContentLoaded', () => {
-            dashboard = new SEADashboard();
-            window.dashboard = dashboard;
+            auth = new AuthManager();
+            window.auth = auth;
         });
     </script>
 </body>
