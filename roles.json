@@ -1,0 +1,49 @@
+[
+  {
+    "name": "admin",
+    "description": "Full system access — manage users, roles, policies, settings, and all alerts",
+    "permissions": [
+      "alerts.view", "alerts.mitigate", "alerts.clear", "alerts.export",
+      "policies.view", "policies.create", "policies.edit", "policies.delete", "policies.import",
+      "stats.view", "topology.view", "logs.view", "logs.download",
+      "settings.view", "settings.edit",
+      "users.view", "users.create", "users.delete",
+      "roles.view", "roles.import"
+    ]
+  },
+  {
+    "name": "analyst",
+    "description": "Monitor security alerts, apply mitigations, and view system state",
+    "permissions": [
+      "alerts.view", "alerts.mitigate", "alerts.export",
+      "policies.view",
+      "stats.view", "topology.view", "logs.view",
+      "settings.view"
+    ]
+  },
+  {
+    "name": "viewer",
+    "description": "Read-only access to dashboard, alerts, policies, and logs",
+    "permissions": [
+      "alerts.view", "policies.view", "stats.view", "topology.view", "logs.view"
+    ]
+  },
+  {
+    "name": "network_ops",
+    "description": "Network operations — view topology, flows, and manage basic policies",
+    "permissions": [
+      "alerts.view",
+      "policies.view", "policies.create", "policies.edit",
+      "stats.view", "topology.view", "logs.view"
+    ]
+  },
+  {
+    "name": "auditor",
+    "description": "Audit-only access — view logs, alerts history, and export data",
+    "permissions": [
+      "alerts.view", "alerts.export",
+      "policies.view",
+      "stats.view", "logs.view", "logs.download"
+    ]
+  }
+]

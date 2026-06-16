@@ -1,0 +1,5 @@
+id,name,description,permissions,is_builtin
+1,admin,Full system access,"[""alerts.view"", ""alerts.mitigate"", ""alerts.clear"", ""alerts.export"", ""policies.view"", ""policies.create"", ""policies.edit"", ""policies.delete"", ""policies.import"", ""stats.view"", ""topology.view"", ""logs.view"", ""logs.download"", ""settings.view"", ""settings.edit"", ""users.view"", ""users.create"", ""users.delete"", ""roles.view"", ""roles.import""]",1
+2,analyst,Monitor alerts and apply mitigations,"[""alerts.view"", ""alerts.mitigate"", ""alerts.export"", ""policies.view"", ""stats.view"", ""topology.view"", ""logs.view"", ""settings.view""]",1
+3,viewer,Read-only access to dashboard,"[""alerts.view"", ""policies.view"", ""stats.view"", ""topology.view"", ""logs.view""]",1
+4,custom_role,Test role,"[""alerts.view"", ""stats.view""]",0

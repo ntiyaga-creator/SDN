@@ -13,6 +13,51 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Socket.IO -->
     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <style>
+        :root {
+            --bg-main: #f8f9fa;
+            --bg-card: #ffffff;
+            --bg-input: #ffffff;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --border-color: #dee2e6;
+            --table-header: #f8f9fa;
+        }
+        body.dark-mode {
+            --bg-main: #1a1d23;
+            --bg-card: #2d323b;
+            --bg-input: #2d323b;
+            --text-primary: #e9ecef;
+            --text-secondary: #adb5bd;
+            --border-color: #495057;
+            --table-header: #343a40;
+        }
+        body.dark-mode .bg-light { background-color: var(--bg-main) !important; }
+        body.dark-mode .bg-white { background-color: var(--bg-card) !important; }
+        body.dark-mode .card { background-color: var(--bg-card); border-color: var(--border-color); }
+        body.dark-mode .card-header { background-color: var(--bg-card) !important; border-color: var(--border-color); }
+        body.dark-mode .table { color: var(--text-primary); }
+        body.dark-mode .table-light,
+        body.dark-mode .table-light th { background-color: var(--table-header) !important; color: var(--text-primary) !important; }
+        body.dark-mode .table-hover tbody tr:hover { color: var(--text-primary); }
+        body.dark-mode .form-control,
+        body.dark-mode .form-select,
+        body.dark-mode .input-group-text { background-color: var(--bg-input); color: var(--text-primary); border-color: var(--border-color); }
+        body.dark-mode .text-muted { color: var(--text-secondary) !important; }
+        body.dark-mode .list-group-item { background-color: var(--bg-card); color: var(--text-primary); border-color: var(--border-color); }
+        body.dark-mode pre { background-color: #1a1d23 !important; color: #e9ecef !important; border-color: var(--border-color) !important; }
+        body.dark-mode .modal-content { background-color: var(--bg-card); color: var(--text-primary); }
+        body.dark-mode .btn-close { filter: invert(1); }
+        body.dark-mode .navbar,
+        body.dark-mode .border-bottom { border-color: var(--border-color) !important; }
+        body.dark-mode .bg-dark { background-color: #12141a !important; }
+        body.dark-mode .border-end { border-color: #2d323b !important; }
+        body.dark-mode .dropdown-menu { background-color: var(--bg-card); border-color: var(--border-color); }
+        body.dark-mode .dropdown-item { color: var(--text-primary); }
+        body.dark-mode .dropdown-item:hover { background-color: var(--table-header); }
+        body.dark-mode code { color: #e685b5; }
+        body.dark-mode .table-hover tbody tr { color: var(--text-primary); }
+    </style>
 </head>
 <body class="bg-dark">
     <!-- Login Page -->
@@ -81,6 +126,12 @@
                         <a href="#" class="nav-link text-white py-2 px-3 mb-1 rounded" data-page="logs" id="nav-logs">
                             <i class="bi bi-file-text me-2"></i> Logs
                         </a>
+                        <a href="#" class="nav-link text-white py-2 px-3 mb-1 rounded" data-page="users" id="nav-users">
+                            <i class="bi bi-people me-2"></i> Users
+                        </a>
+                        <a href="#" class="nav-link text-white py-2 px-3 mb-1 rounded" data-page="roles" id="nav-roles">
+                            <i class="bi bi-person-badge me-2"></i> Roles
+                        </a>
                         <a href="#" class="nav-link text-white py-2 px-3 mb-1 rounded" data-page="settings" id="nav-settings">
                             <i class="bi bi-gear me-2"></i> Settings
                         </a>
@@ -113,6 +164,9 @@
                             <i class="bi bi-speedometer2"></i> Security Dashboard
                         </h1>
                         <div class="d-flex align-items-center gap-3">
+                            <button id="darkModeToggle" class="btn btn-outline-secondary btn-sm" title="Toggle dark mode">
+                                <i class="bi bi-moon-stars"></i>
+                            </button>
                             <div class="dropdown">
                                 <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
                                     <i class="bi bi-person-circle"></i> <span id="adminName">Admin</span>
@@ -246,19 +300,53 @@
                     <!-- Alerts Page -->
                     <div id="alerts-page" class="page" style="display: none;">
                         <div class="card">
-                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0"><i class="bi bi-bell"></i> Security Alerts History</h5>
-                                <div class="d-flex gap-2">
-                                    <select id="severityFilter" class="form-select form-select-sm w-auto">
-                                        <option value="all">All Severities</option>
-                                        <option value="CRITICAL">Critical</option>
-                                        <option value="HIGH">High</option>
-                                        <option value="MEDIUM">Medium</option>
-                                        <option value="LOW">Low</option>
-                                    </select>
-                                    <button id="clearAlertsBtn" class="btn btn-danger btn-sm">
-                                        <i class="bi bi-trash"></i> Clear All
-                                    </button>
+                            <div class="card-header bg-white">
+                                <h5 class="mb-3"><i class="bi bi-bell"></i> Security Alerts History</h5>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-auto">
+                                        <label class="form-label small mb-1 text-muted">Severity</label>
+                                        <select id="filterSeverity" class="form-select form-select-sm">
+                                            <option value="all">All</option>
+                                            <option value="CRITICAL">Critical</option>
+                                            <option value="HIGH">High</option>
+                                            <option value="MEDIUM">Medium</option>
+                                            <option value="LOW">Low</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-auto">
+                                        <label class="form-label small mb-1 text-muted">Status</label>
+                                        <select id="filterStatus" class="form-select form-select-sm">
+                                            <option value="all">All</option>
+                                            <option value="active">Active</option>
+                                            <option value="mitigated">Mitigated</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-auto">
+                                        <label class="form-label small mb-1 text-muted">Search</label>
+                                        <input type="text" id="filterSearch" class="form-control form-control-sm" placeholder="IP or message..." style="min-width:180px;">
+                                    </div>
+                                    <div class="col-auto">
+                                        <label class="form-label small mb-1 text-muted">From</label>
+                                        <input type="date" id="filterDateFrom" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-auto">
+                                        <label class="form-label small mb-1 text-muted">To</label>
+                                        <input type="date" id="filterDateTo" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-auto d-flex gap-1">
+                                        <label class="form-label small mb-1 text-muted">&nbsp;</label>
+                                        <div>
+                                            <button id="applyFilterBtn" class="btn btn-primary btn-sm"><i class="bi bi-funnel"></i> Apply</button>
+                                            <button id="resetFilterBtn" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x"></i> Reset</button>
+                                        </div>
+                                    </div>
+                                    <div class="col-auto ms-auto d-flex gap-1">
+                                        <label class="form-label small mb-1 text-muted">&nbsp;</label>
+                                        <div>
+                                            <button id="exportCsvBtn" class="btn btn-success btn-sm"><i class="bi bi-download"></i> CSV</button>
+                                            <button id="clearAlertsBtn" class="btn btn-danger btn-sm"><i class="bi bi-trash"></i> Clear All</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="card-body p-0">
@@ -291,9 +379,14 @@
                         <div class="card">
                             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0"><i class="bi bi-shield-check"></i> Security Policies</h5>
-                                <button id="addPolicyBtn" class="btn btn-primary btn-sm">
-                                    <i class="bi bi-plus-lg"></i> Add Policy
-                                </button>
+                                <div class="d-flex gap-2">
+                                    <button id="importPoliciesBtn" class="btn btn-info btn-sm">
+                                        <i class="bi bi-upload"></i> Import JSON
+                                    </button>
+                                    <button id="addPolicyBtn" class="btn btn-primary btn-sm">
+                                        <i class="bi bi-plus-lg"></i> Add Policy
+                                    </button>
+                                </div>
                             </div>
                             <div class="card-body p-0">
                                 <div class="table-responsive">
@@ -344,6 +437,99 @@
                                             <li class="list-group-item text-muted">Loading devices...</li>
                                         </ul>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Users Page -->
+                    <div id="users-page" class="page" style="display: none;">
+                        <div class="card mb-4">
+                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="bi bi-people"></i> Users</h5>
+                                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                                    <i class="bi bi-plus-lg"></i> Add User
+                                </button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Username</th>
+                                                <th>Role</th>
+                                                <th>Created</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="usersTableBody">
+                                            <tr><td colspan="5" class="text-center text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Loading users...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Add User Modal -->
+                    <div class="modal fade" id="addUserModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Add User</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <form id="addUserForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Username</label>
+                                            <input type="text" class="form-control" id="newUsername" required minlength="3">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Password</label>
+                                            <input type="password" class="form-control" id="newPassword" required minlength="6">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Role</label>
+                                            <select class="form-select" id="newUserRole"></select>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="button" class="btn btn-primary" id="saveUserBtn">Save</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Roles Page -->
+                    <div id="roles-page" class="page" style="display: none;">
+                        <div class="card">
+                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="bi bi-person-badge"></i> Roles</h5>
+                                <div class="d-flex gap-2">
+                                    <button id="importRolesBtn" class="btn btn-info btn-sm">
+                                        <i class="bi bi-upload"></i> Import JSON
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Description</th>
+                                                <th>Permissions</th>
+                                                <th>Type</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="rolesTableBody">
+                                            <tr><td colspan="4" class="text-center text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Loading roles...</td></tr>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -452,6 +638,7 @@
                 this.loadInitialData();
                 this.startAutoRefresh();
                 this.updateLiveTime();
+                this.initDarkMode();
             }
 
             connectSocket() {
@@ -505,9 +692,30 @@
                     this.refreshAll();
                 });
                 
-                // Filter
-                document.getElementById('severityFilter')?.addEventListener('change', (e) => {
-                    this.filterAlerts(e.target.value);
+                // Dark mode toggle
+                document.getElementById('darkModeToggle')?.addEventListener('click', () => {
+                    this.toggleDarkMode();
+                });
+                
+                // Alert filters
+                document.getElementById('applyFilterBtn')?.addEventListener('click', () => {
+                    this.fetchFilteredAlerts();
+                });
+                document.getElementById('resetFilterBtn')?.addEventListener('click', () => {
+                    document.getElementById('filterSeverity').value = 'all';
+                    document.getElementById('filterStatus').value = 'all';
+                    document.getElementById('filterSearch').value = '';
+                    document.getElementById('filterDateFrom').value = '';
+                    document.getElementById('filterDateTo').value = '';
+                    this.fetchFilteredAlerts();
+                });
+                document.getElementById('filterSearch')?.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') this.fetchFilteredAlerts();
+                });
+                
+                // Export CSV
+                document.getElementById('exportCsvBtn')?.addEventListener('click', () => {
+                    this.exportAlertsCsv();
                 });
                 
                 // Clear alerts
@@ -518,6 +726,21 @@
                 // Add policy
                 document.getElementById('addPolicyBtn')?.addEventListener('click', () => {
                     this.showAddPolicyDialog();
+                });
+                
+                // Import policies
+                document.getElementById('importPoliciesBtn')?.addEventListener('click', () => {
+                    this.importPoliciesDialog();
+                });
+                
+                // Import roles
+                document.getElementById('importRolesBtn')?.addEventListener('click', () => {
+                    this.importRolesDialog();
+                });
+                
+                // Save user
+                document.getElementById('saveUserBtn')?.addEventListener('click', () => {
+                    this.addUser();
                 });
                 
                 // Download logs
@@ -638,6 +861,8 @@
                     alerts: 'Security Alerts',
                     policies: 'Security Policies',
                     topology: 'Network Topology',
+                    users: 'Users',
+                    roles: 'Roles',
                     logs: 'System Logs',
                     settings: 'Settings'
                 };
@@ -651,6 +876,10 @@
                     this.loadTopology();
                 } else if (page === 'logs') {
                     this.loadLogs();
+                } else if (page === 'users') {
+                    this.fetchUsers();
+                } else if (page === 'roles') {
+                    this.fetchRoles();
                 }
             }
             
@@ -660,6 +889,8 @@
                     alerts: 'bell',
                     policies: 'shield-check',
                     topology: 'diagram-3',
+                    users: 'people',
+                    roles: 'person-badge',
                     logs: 'file-text',
                     settings: 'gear'
                 };
@@ -671,6 +902,8 @@
                 this.fetchAlerts();
                 this.fetchPolicies();
                 this.fetchFlows();
+                this.fetchUsers();
+                this.fetchRoles();
             }
             
             async fetchStats() {
@@ -705,13 +938,77 @@
             async fetchAlerts() {
                 try {
                     const response = await fetch('/api/alerts');
-                    this.alertsData = await response.json();
+                    const data = await response.json();
+                    this.alertsData = Array.isArray(data) ? data : (data.alerts || []);
                     this.displayAlerts(this.alertsData);
                     this.updateAlertChart();
                 } catch (error) {
                     console.error('Failed to fetch alerts:', error);
                     this.loadDemoAlerts();
                 }
+            }
+            
+            async fetchFilteredAlerts() {
+                const severity = document.getElementById('filterSeverity').value;
+                const status = document.getElementById('filterStatus').value;
+                const search = document.getElementById('filterSearch').value;
+                const dateFrom = document.getElementById('filterDateFrom').value;
+                const dateTo = document.getElementById('filterDateTo').value;
+                const params = new URLSearchParams();
+                if (severity !== 'all') params.set('severity', severity);
+                if (status !== 'all') params.set('status', status);
+                if (search) params.set('search', search);
+                if (dateFrom) params.set('date_from', dateFrom + 'T00:00:00');
+                if (dateTo) params.set('date_to', dateTo + 'T23:59:59');
+                try {
+                    const response = await fetch('/api/alerts?' + params.toString());
+                    const data = await response.json();
+                    const filtered = Array.isArray(data) ? data : (data.alerts || []);
+                    const tbody = document.getElementById('fullAlertsTableBody');
+                    if (tbody) {
+                        if (filtered.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No alerts match filters</td></tr>';
+                        } else {
+                            tbody.innerHTML = filtered.map(alert => `
+                                <tr>
+                                    <td><code>${alert.id.substring(0, 8)}...</code></td>
+                                    <td><small>${new Date(alert.timestamp).toLocaleString()}</small></td>
+                                    <td><span class="badge bg-${this.getSeverityClass(alert.severity)}">${alert.severity}</span></td>
+                                    <td>${alert.message}</td>
+                                    <td><code>${alert.sourceIp}</code></td>
+                                    <td><code>${alert.destinationIp}</code></td>
+                                    <td><span class="badge bg-${alert.mitigated ? 'success' : 'warning'}">${alert.mitigated ? 'Mitigated' : 'Active'}</span></td>
+                                </tr>
+                            `).join('');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch filtered alerts:', error);
+                }
+            }
+            
+            exportAlertsCsv() {
+                const severity = document.getElementById('filterSeverity').value;
+                const params = severity !== 'all' ? '?severity=' + severity : '';
+                window.open('/api/alerts/export' + params, '_blank');
+                this.showNotification('Exporting alerts CSV...', 'info');
+            }
+            
+            initDarkMode() {
+                const darkMode = localStorage.getItem('seaDarkMode') === 'true';
+                if (darkMode) {
+                    document.body.classList.add('dark-mode');
+                    document.querySelector('#darkModeToggle i').className = 'bi bi-sun';
+                }
+            }
+            
+            toggleDarkMode() {
+                const body = document.body;
+                body.classList.toggle('dark-mode');
+                const isDark = body.classList.contains('dark-mode');
+                localStorage.setItem('seaDarkMode', isDark);
+                document.querySelector('#darkModeToggle i').className = isDark ? 'bi bi-sun' : 'bi bi-moon-stars';
+                this.showNotification(isDark ? 'Dark mode enabled' : 'Light mode enabled', 'info');
             }
             
             loadDemoAlerts() {
@@ -807,9 +1104,6 @@
                 return classes[severity] || 'secondary';
             }
             
-            filterAlerts(severity) {
-                this.displayAlerts(this.alertsData, severity);
-            }
             
             updateAlertChart() {
                 if (!this.charts.alerts) return;
@@ -1120,6 +1414,148 @@
                 } catch (error) {
                     console.error('Failed to add policy:', error);
                     this.showNotification(`Policy "${name}" added (Demo Mode)`, 'info');
+                }
+            }
+            
+            importPoliciesDialog() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.onchange = async (e) => {
+                    try {
+                        const text = await e.target.files[0].text();
+                        const policies = JSON.parse(text);
+                        if (!Array.isArray(policies)) throw new Error('Expected an array');
+                        const resp = await fetch('/api/policies/import', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(policies),
+                        });
+                        if (resp.ok) {
+                            const result = await resp.json();
+                            this.fetchPolicies();
+                            this.showNotification(`Imported ${result.imported} policies`, 'success');
+                        }
+                    } catch (err) {
+                        this.showNotification('Import failed: ' + err.message, 'error');
+                    }
+                };
+                input.click();
+            }
+            
+            importRolesDialog() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.onchange = async (e) => {
+                    try {
+                        const text = await e.target.files[0].text();
+                        const roles = JSON.parse(text);
+                        if (!Array.isArray(roles)) throw new Error('Expected an array');
+                        const resp = await fetch('/api/roles/import', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(roles),
+                        });
+                        if (resp.ok) {
+                            const result = await resp.json();
+                            this.fetchRoles();
+                            this.showNotification(`Imported ${result.imported} roles`, 'success');
+                        }
+                    } catch (err) {
+                        this.showNotification('Import failed: ' + err.message, 'error');
+                    }
+                };
+                input.click();
+            }
+            
+            async fetchUsers() {
+                try {
+                    const resp = await fetch('/api/users');
+                    const users = await resp.json();
+                    const tbody = document.getElementById('usersTableBody');
+                    const roleSelect = document.getElementById('newUserRole');
+                    if (!tbody) return;
+                    tbody.innerHTML = users.map(u => `
+                        <tr>
+                            <td>${u.id}</td>
+                            <td><strong>${u.username}</strong></td>
+                            <td><span class="badge bg-info">${u.role_name}</span></td>
+                            <td><small>${new Date(u.created_at).toLocaleDateString()}</small></td>
+                            <td>
+                                <button onclick="dashboard.deleteUser(${u.id})" class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                            </td>
+                        </tr>
+                    `).join('');
+                    if (roleSelect) {
+                        const rolesResp = await fetch('/api/roles');
+                        const roles = await rolesResp.json();
+                        roleSelect.innerHTML = roles.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch users:', err);
+                }
+            }
+            
+            async fetchRoles() {
+                try {
+                    const resp = await fetch('/api/roles');
+                    const roles = await resp.json();
+                    const tbody = document.getElementById('rolesTableBody');
+                    if (!tbody) return;
+                    tbody.innerHTML = roles.map(r => {
+                        const perms = Array.isArray(r.permissions) ? r.permissions.join(', ') : r.permissions;
+                        return `<tr>
+                            <td><strong>${r.name}</strong></td>
+                            <td><small class="text-muted">${r.description}</small></td>
+                            <td><small>${perms}</small></td>
+                            <td><span class="badge bg-${r.is_builtin ? 'secondary' : 'primary'}">${r.is_builtin ? 'Built-in' : 'Custom'}</span></td>
+                        </tr>`;
+                    }).join('');
+                } catch (err) {
+                    console.error('Failed to fetch roles:', err);
+                }
+            }
+            
+            async addUser() {
+                const username = document.getElementById('newUsername').value.trim();
+                const password = document.getElementById('newPassword').value;
+                const role_id = parseInt(document.getElementById('newUserRole').value);
+                if (!username || !password) return this.showNotification('Fill all fields', 'error');
+                try {
+                    const resp = await fetch('/api/users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password, role_id }),
+                    });
+                    if (resp.ok) {
+                        this.fetchUsers();
+                        document.getElementById('newUsername').value = '';
+                        document.getElementById('newPassword').value = '';
+                        bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
+                        this.showNotification('User created', 'success');
+                    } else {
+                        const err = await resp.json();
+                        this.showNotification(err.error, 'error');
+                    }
+                } catch (err) {
+                    this.showNotification('Failed to create user', 'error');
+                }
+            }
+            
+            async deleteUser(userId) {
+                if (!confirm('Delete this user?')) return;
+                try {
+                    const resp = await fetch('/api/users/' + userId, { method: 'DELETE' });
+                    if (resp.ok) {
+                        this.fetchUsers();
+                        this.showNotification('User deleted', 'success');
+                    } else {
+                        const err = await resp.json();
+                        this.showNotification(err.error, 'error');
+                    }
+                } catch (err) {
+                    console.error('Failed to delete user:', err);
                 }
             }
             
