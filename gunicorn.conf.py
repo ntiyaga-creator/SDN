@@ -1,8 +1,11 @@
+import os
 import threading
 import logging
 from app import app, socketio, monitor, ryu_client, stats, add_log, _load_counts, _ryu_poller, UserModel
 
 logger = logging.getLogger(__name__)
+
+bind = f"0.0.0.0:{os.environ.get('PORT', '5000')}"
 
 def when_ready(server):
     add_log("INFO", "SEA Application starting on Render...")
