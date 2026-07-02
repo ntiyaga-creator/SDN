@@ -6,13 +6,15 @@ import io
 import logging
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from functools import wraps
+from collections import defaultdict
 
 from flask import Flask, Response, jsonify, request, send_file, session
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from models import Alert, Policy, PolicyAction, Severity, TrafficStats
 from sdn_client import RyuClient
@@ -37,6 +39,17 @@ init_db(app)
 ryu_client = RyuClient()
 stats = TrafficStats()
 monitor = TrafficMonitor(alert_callback=lambda data: _handle_monitor_update(data))
+
+login_attempts = defaultdict(list)
+LOGIN_RATE_LIMIT = 5
+LOGIN_WINDOW = 300
+
+
+def _is_rate_limited(ip):
+    now = datetime.now(timezone.utc)
+    attempts = login_attempts[ip]
+    attempts[:] = [t for t in attempts if now - t < timedelta(seconds=LOGIN_WINDOW)]
+    return len(attempts) >= LOGIN_RATE_LIMIT
 
 
 def _load_counts():
@@ -89,22 +102,24 @@ def add_log(level, message):
 def _handle_monitor_update(data):
     if "alert" in data:
         alert_dict = data["alert"]
-        alert = AlertModel(
-            id=alert_dict["id"],
-            timestamp=alert_dict["timestamp"],
-            message=alert_dict["message"],
-            severity=alert_dict["severity"],
-            source_ip=alert_dict["sourceIp"],
-            destination_ip=alert_dict["destinationIp"],
-            mitigated=int(alert_dict.get("mitigated", False)),
-        )
         with app.app_context():
-            if not AlertModel.query.get(alert.id):
+            if not AlertModel.query.get(alert_dict["id"]):
+                alert = AlertModel(
+                    id=alert_dict["id"],
+                    timestamp=alert_dict["timestamp"],
+                    message=alert_dict["message"],
+                    severity=alert_dict["severity"],
+                    source_ip=alert_dict["sourceIp"],
+                    destination_ip=alert_dict["destinationIp"],
+                    mitigated=int(alert_dict.get("mitigated", False)),
+                )
                 db.session.add(alert)
                 db.session.commit()
+            else:
+                alert = AlertModel.query.get(alert_dict["id"])
         stats.total_alerts += 1
-        add_log("ALERT", f"{alert.severity}: {alert.message}")
-        socketio.emit("new_alert", alert.to_dict())
+        add_log("ALERT", f"{alert_dict['severity']}: {alert_dict['message']}")
+        socketio.emit("new_alert", alert_dict)
         socketio.emit("stats_update", stats.to_dict())
     elif "totalPackets" in data:
         stats.total_packets = data["totalPackets"]
@@ -159,11 +174,16 @@ def index():
 
 @app.route("/api/login", methods=["POST"])
 def login():
+    ip = request.remote_addr or "unknown"
+    if _is_rate_limited(ip):
+        add_log("WARN", f"Rate-limited login from {ip}")
+        return jsonify({"error": "Too many login attempts. Try again in 5 minutes."}), 429
     data = request.get_json()
     username = data.get("username", "")
     password = data.get("password", "")
     user = _get_user(username)
-    if user and username == user.username and password == user.password:
+    if user and username == user.username and check_password_hash(user.password, password):
+        login_attempts.pop(ip, None)
         role = RoleModel.query.get(user.role_id)
         session["logged_in"] = True
         session["username"] = username
@@ -174,6 +194,7 @@ def login():
         role_name = role.name if role else "unknown"
         add_log("INFO", f"Login: {username} ({role_name})")
         return jsonify({"status": "ok", "username": username, "role": role_name})
+    login_attempts[ip].append(datetime.now(timezone.utc))
     add_log("WARN", f"Failed login attempt: {username}")
     return jsonify({"error": "Invalid credentials"}), 401
 
@@ -201,11 +222,11 @@ def change_password():
     new = data.get("newPassword", "")
     username = session.get("username", "")
     user = _get_user(username)
-    if not user or old != user.password:
+    if not user or not check_password_hash(user.password, old):
         return jsonify({"error": "Current password is incorrect"}), 400
     if len(new) < 6:
         return jsonify({"error": "New password must be at least 6 characters"}), 400
-    user.password = new
+    user.password = generate_password_hash(new)
     db.session.commit()
     add_log("INFO", f"Password changed for {username}")
     return jsonify({"status": "ok"})
@@ -583,7 +604,7 @@ def add_user():
         if UserModel.query.filter_by(username=username).first():
             return jsonify({"error": "Username already exists"}), 400
         user = UserModel(
-            username=username, password=password,
+            username=username, password=generate_password_hash(password),
             role_id=role_id,
             created_at=datetime.now(timezone.utc).isoformat(),
         )

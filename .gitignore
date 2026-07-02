@@ -1,0 +1,10 @@
+sea.db
+sea_system.log
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+venv/
+.venv/
+instance/
+query

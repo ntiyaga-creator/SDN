@@ -1,8 +1,10 @@
+import os
 import json
 import uuid
 from datetime import datetime, timezone
 
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash
 
 db = SQLAlchemy()
 
@@ -108,7 +110,13 @@ class SettingModel(db.Model):
 
 
 def init_db(app):
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///sea.db"
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+    else:
+        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///sea.db"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     db.init_app(app)
     with app.app_context():
@@ -118,9 +126,13 @@ def init_db(app):
 
 
 def _migrate_schema():
+    from sqlalchemy import inspect as sa_inspect
     try:
-        db.session.execute(db.text("ALTER TABLE users ADD COLUMN role_id INTEGER DEFAULT 1 REFERENCES roles(id)"))
-        db.session.commit()
+        inspector = sa_inspect(db.engine)
+        columns = [c["name"] for c in inspector.get_columns("users")]
+        if "role_id" not in columns:
+            db.session.execute(db.text("ALTER TABLE users ADD COLUMN role_id INTEGER DEFAULT 1"))
+            db.session.commit()
     except Exception:
         db.session.rollback()
 
@@ -151,7 +163,7 @@ def _seed_defaults():
     if not UserModel.query.first():
         user = UserModel(
             username="admin",
-            password="ntiyaga@1234",
+            password=generate_password_hash("ntiyaga@1234"),
             role_id=1,
             created_at=datetime.now(timezone.utc).isoformat(),
         )

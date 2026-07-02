@@ -1,4 +1,0 @@
-key,value
-packet_rate,1000
-byte_rate,1000000
-ddos_packets,10000
